@@ -80,10 +80,12 @@ public class XmlWebApplicationContext extends AbstractRefreshableWebApplicationC
 	@Override
 	protected void loadBeanDefinitions(DefaultListableBeanFactory beanFactory) throws BeansException, IOException {
 		// Create a new XmlBeanDefinitionReader for the given BeanFactory.
+		// 1.为指定BeanFactory创建XmlBeanDefinitionReader
 		XmlBeanDefinitionReader beanDefinitionReader = new XmlBeanDefinitionReader(beanFactory);
 
 		// Configure the bean definition reader with this context's
 		// resource loading environment.
+		// 2.使用此上下文的资源加载环境配置 XmlBeanDefinitionReader
 		beanDefinitionReader.setEnvironment(getEnvironment());
 		beanDefinitionReader.setResourceLoader(this);
 		beanDefinitionReader.setEntityResolver(new ResourceEntityResolver(this));
@@ -91,6 +93,7 @@ public class XmlWebApplicationContext extends AbstractRefreshableWebApplicationC
 		// Allow a subclass to provide custom initialization of the reader,
 		// then proceed with actually loading the bean definitions.
 		initBeanDefinitionReader(beanDefinitionReader);
+		// 3.加载 bean 定义
 		loadBeanDefinitions(beanDefinitionReader);
 	}
 
@@ -119,9 +122,20 @@ public class XmlWebApplicationContext extends AbstractRefreshableWebApplicationC
 	 * @see #getResourcePatternResolver
 	 */
 	protected void loadBeanDefinitions(XmlBeanDefinitionReader reader) throws IOException {
+		// 1.获取配置文件路径
+		// 获取配置文件路径：如果 configLocations 属性不为空，则返回 configLocations 的值；
+		// 否则，调用 getDefaultConfigLocations() 方法。
+		// 在 Spring IoC：ApplicationContext 刷新前的配置 文中介绍过 configLocations 属性，
+		// 该属性会被赋值为我们在web.xml中配置的 contextConfigLocation 的参数值，
+		// 例如下面即为：classpath*:config/spring/context-*.xml
+		//<context-param>
+		//    <param-name>contextConfigLocation</param-name>
+		//    <param-value>classpath*:config/spring/context-*.xml</param-value>
+		//</context-param>
 		String[] configLocations = getConfigLocations();
 		if (configLocations != null) {
 			for (String configLocation : configLocations) {
+				// 2.根据配置文件路径加载 bean 定义
 				reader.loadBeanDefinitions(configLocation);
 			}
 		}

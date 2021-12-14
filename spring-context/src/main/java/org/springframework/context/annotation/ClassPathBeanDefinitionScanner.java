@@ -163,6 +163,11 @@ public class ClassPathBeanDefinitionScanner extends ClassPathScanningCandidateCo
 		this.registry = registry;
 
 		if (useDefaultFilters) {
+			// 1.注册默认的filter
+			// 这边会尝试添加3个 AnnotationTypeFilter 到 includeFilters 中，
+			// 但是默认情况下，添加 @Named 注解对应的 AnnotationTypeFilter 时会抛异常。
+			// 因此，执行完该方法，includeFilters 会有两个 AnnotationTypeFilter，
+			// 分别对应 @Component 注解和 @ManagedBean 注解
 			registerDefaultFilters();
 		}
 		setEnvironment(environment);
@@ -272,23 +277,41 @@ public class ClassPathBeanDefinitionScanner extends ClassPathScanningCandidateCo
 	protected Set<BeanDefinitionHolder> doScan(String... basePackages) {
 		Assert.notEmpty(basePackages, "At least one base package must be specified");
 		Set<BeanDefinitionHolder> beanDefinitions = new LinkedHashSet<>();
+		// 1.遍历basePackages
 		for (String basePackage : basePackages) {
+			// 2.扫描basePackage，将符合要求的bean定义全部找出来（这边符合要求最常见的就是使用Component注解）
 			Set<BeanDefinition> candidates = findCandidateComponents(basePackage);
+			// 3.遍历所有候选的bean定义
 			for (BeanDefinition candidate : candidates) {
+				// 4.解析@Scope注解, 包括scopeName(默认为singleton，常见的还有prototype), 和proxyMode(默认不使用代理, 可选接口代理/类代理)
+				// 如果使用了@Scope注解，则解析注解的属性。
+				// 这边的 defaultProxyMode 取决于scope-resolver、scoped-proxy 属性，
+				// 默认为 ScopedProxyMode.NO。可以通过 scoped-proxy 来设置，例如下面配置 defaultProxyMode
+				// 的值就为 ScopedProxyMode.TARGET_CLASS。
+				// <context:component-scan base-package="com.spring.demo" scoped-proxy="targetClass">
+				// 	  <context:exclude-filter type="annotation" expression="org.springframework.stereotype.Controller"/>
+				// </context:component-scan>
 				ScopeMetadata scopeMetadata = this.scopeMetadataResolver.resolveScopeMetadata(candidate);
 				candidate.setScope(scopeMetadata.getScopeName());
+				// 5.使用beanName生成器来生成beanName
 				String beanName = this.beanNameGenerator.generateBeanName(candidate, this.registry);
 				if (candidate instanceof AbstractBeanDefinition) {
+					// 6.进一步处理BeanDefinition对象，比如: 此bean是否可以自动装配到其他bean中
 					postProcessBeanDefinition((AbstractBeanDefinition) candidate, beanName);
 				}
 				if (candidate instanceof AnnotatedBeanDefinition) {
+					// 7.处理定义在目标类上的通用注解，包括@Lazy, @Primary, @DependsOn, @Role, @Description
 					AnnotationConfigUtils.processCommonDefinitionAnnotations((AnnotatedBeanDefinition) candidate);
 				}
+				// 8.检查beanName是否已经注册过，如果注册过，检查是否兼容
 				if (checkCandidate(beanName, candidate)) {
+					// 9.将当前遍历bean的 bean定义和beanName封装成BeanDefinitionHolder
 					BeanDefinitionHolder definitionHolder = new BeanDefinitionHolder(candidate, beanName);
+					// 10.根据proxyMode的值(步骤4中解析), 选择是否创建作用域代理
 					definitionHolder =
 							AnnotationConfigUtils.applyScopedProxyMode(scopeMetadata, definitionHolder, this.registry);
 					beanDefinitions.add(definitionHolder);
+					// 11.注册BeanDefinition（注册到beanDefinitionMap、beanDefinitionNames、aliasMap缓存）
 					registerBeanDefinition(definitionHolder, this.registry);
 				}
 			}
@@ -303,8 +326,10 @@ public class ClassPathBeanDefinitionScanner extends ClassPathScanningCandidateCo
 	 * @param beanName the generated bean name for the given bean
 	 */
 	protected void postProcessBeanDefinition(AbstractBeanDefinition beanDefinition, String beanName) {
+		// 给beanDefinition设置默认值
 		beanDefinition.applyDefaults(this.beanDefinitionDefaults);
 		if (this.autowireCandidatePatterns != null) {
+			// 设置此bean是否可以自动装配到其他bean中, 默认为true
 			beanDefinition.setAutowireCandidate(PatternMatchUtils.simpleMatch(this.autowireCandidatePatterns, beanName));
 		}
 	}
@@ -333,17 +358,24 @@ public class ClassPathBeanDefinitionScanner extends ClassPathScanningCandidateCo
 	 * bean definition has been found for the specified name
 	 */
 	protected boolean checkCandidate(String beanName, BeanDefinition beanDefinition) throws IllegalStateException {
+		// 1.如果该注册表（beanDefinitionMap缓存）没有包含beanName, 则返回true，代表可以注册该bean定义
 		if (!this.registry.containsBeanDefinition(beanName)) {
 			return true;
 		}
+		// 2.如果注册表中包含beanName
+		// 2.1拿到注册表中该beanName的BeanDefinition
 		BeanDefinition existingDef = this.registry.getBeanDefinition(beanName);
+		// 2.2拿到原始BeanDefinition(使用了代理的BeanDefinition会有原始BeanDefinition)
 		BeanDefinition originatingDef = existingDef.getOriginatingBeanDefinition();
 		if (originatingDef != null) {
+			// 2.3如果有原始BeanDefinition, 则使用原始BeanDefinition
 			existingDef = originatingDef;
 		}
+		// 3.检查新BeanDefinition是否与原BeanDefinition兼容，如果兼容则返回false，跳过注册
 		if (isCompatible(beanDefinition, existingDef)) {
 			return false;
 		}
+		// 4.如果不兼容，则抛异常
 		throw new ConflictingBeanDefinitionException("Annotation-specified bean name '" + beanName +
 				"' for bean class [" + beanDefinition.getBeanClassName() + "] conflicts with existing, " +
 				"non-compatible bean definition of same name and class [" + existingDef.getBeanClassName() + "]");

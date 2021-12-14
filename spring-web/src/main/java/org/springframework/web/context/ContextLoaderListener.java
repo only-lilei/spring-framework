@@ -100,6 +100,28 @@ public class ContextLoaderListener extends ContextLoader implements ServletConte
 	 */
 	@Override
 	public void contextInitialized(ServletContextEvent event) {
+		//入口
+		//<?xml version="1.0" encoding="UTF-8"?>
+		//<web-app version="2.5" xmlns="http://java.sun.com/xml/ns/javaee"
+		//         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+		//         xsi:schemaLocation="http://java.sun.com/xml/ns/javaee
+		//         http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd">
+		//    <display-name>open-joonwhee-service WAR</display-name>
+		//
+		//    <context-param>
+		//        <param-name>contextConfigLocation</param-name>
+		//        <param-value>
+		//            classpath*:config/spring/appcontext-*.xml
+		//        </param-value>
+		//    </context-param>
+		//
+		//    <listener>
+		//        <listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>
+		//    </listener>
+		//</web-app>
+		//该 web.xml 是一个使用了 Spring 框架的项目的最基本的配置，配置了 ContextLoaderListener 和 contextConfigLocation。其中 ContextLoaderListener 是 Spring 的入口，而 contextConfigLocation 是 Spring 配置文件的路径。
+		//
+		//接下来，让我们从 ContextLoaderListener#contextInitialized 开始 IoC 的构建。
 		initWebApplicationContext(event.getServletContext());
 	}
 

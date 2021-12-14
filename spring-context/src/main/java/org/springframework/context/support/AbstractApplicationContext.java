@@ -521,7 +521,21 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 	 * Return the list of BeanFactoryPostProcessors that will get applied
 	 * to the internal BeanFactory.
 	 */
+	/**
+	 * {@link org.springframework.web.context.ContextLoader#customizeContext}
+	 * 该方法是 Spring 提供给开发者的一个扩展点，用于自定义应用上下文，并且在 refresh() 方法前就被调用。在这边就可以通过该方法来添加自定义的 BeanFactoryPostProcessor。
+	 * demo:{@link com.spring.demo.annotation.spring.SpringApplicationContextInitializer}
+	 *
+		 <context-param>
+			 <param-name>contextInitializerClasses</param-name>
+			 <param-value>
+	 			com.spring.demo.annotation.spring.SpringApplicationContextInitializer
+			 </param-value>
+		 </context-param>
+	 **/
 	public List<BeanFactoryPostProcessor> getBeanFactoryPostProcessors() {
+		// getBeanFactoryPostProcessors() 会拿到当前应用上下文中已经注册的 BeanFactoryPostProcessor，
+		// 在默认情况下，this.beanFactoryPostProcessors 是返回空的。
 		return this.beanFactoryPostProcessors;
 	}
 
@@ -547,42 +561,73 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 			StartupStep contextRefresh = this.applicationStartup.start("spring.context.refresh");
 
 			// Prepare this context for refreshing.
+			//为刷新准备新的上下文环境，设置其启动日期和活动标志以及执行一些属性的初始化。
 			prepareRefresh();
 
 			// Tell the subclass to refresh the internal bean factory.
+			//用于获得一个新的 BeanFactory。
+			//该方法会解析所有 Spring 配置文件（通常我们会放在 resources 目录下），将所有 Spring 配置文件中的 bean 定义封装成 BeanDefinition，加载到 BeanFactory 中。
+			// 常见的，如果解析到<context:component-scan base-package="com.spring.demo" /> 注解时，
+			// 会扫描 base-package 指定的目录，将该目录下使用指定注解（@Controller、@Service、@Component、@Repository）的 bean
+			// 定义也同样封装成 BeanDefinition，加载到 BeanFactory 中。
+			//上面提到的“加载到 BeanFactory 中”的内容主要指的是以下3个缓存：
+			//
+			//beanDefinitionNames缓存：所有被加载到 BeanFactory 中的 bean 的 beanName 集合。
+			//beanDefinitionMap缓存：所有被加载到 BeanFactory 中的 bean 的 beanName 和 BeanDefinition 映射。
+			//aliasMap缓存：所有被加载到 BeanFactory 中的 bean 的 beanName 和别名映射。
 			ConfigurableListableBeanFactory beanFactory = obtainFreshBeanFactory();
 
 			// Prepare the bean factory for use in this context.
+			//配置 beanFactory 的标准上下文特征，例如上下文的 ClassLoader、后置处理器等。这个方法会注册3个默认环境 bean：environment、systemProperties 和 systemEnvironment，注册 2 个 bean 后置处理器：ApplicationContextAwareProcessor 和 ApplicationListenerDetector。
 			prepareBeanFactory(beanFactory);
 
 			try {
 				// Allows post-processing of the bean factory in context subclasses.
+				//允许子类对 BeanFactory 进行后续处理，默认实现为空，留给子类实现。
 				postProcessBeanFactory(beanFactory);
 
 				StartupStep beanPostProcess = this.applicationStartup.start("spring.context.beans.post-process");
 				// Invoke factory processors registered as beans in the context.
+				//实例化和调用所有 BeanFactoryPostProcessor，包括其子类 BeanDefinitionRegistryPostProcessor。
+				//BeanFactoryPostProcessor 接口是 Spring 初始化 BeanFactory 时对外暴露的扩展点，
+				// Spring IoC 容器允许 BeanFactoryPostProcessor 在容器实例化任何 bean 之前读取 bean 的定义，并可以修改它。
+				//BeanDefinitionRegistryPostProcessor 继承自 BeanFactoryPostProcessor，比 BeanFactoryPostProcessor 具有更高的优先级，主要用来在常规的 BeanFactoryPostProcessor 激活之前注册一些 bean 定义。特别是，你可以通过 BeanDefinitionRegistryPostProcessor 来注册一些常规的 BeanFactoryPostProcessor，因为此时所有常规的 BeanFactoryPostProcessor 都还没开始被处理。
+				//注：这边的 “常规 BeanFactoryPostProcessor” 主要用来跟 BeanDefinitionRegistryPostProcessor 区分。
 				invokeBeanFactoryPostProcessors(beanFactory);
 
 				// Register bean processors that intercept bean creation.
+				//注册所有的 BeanPostProcessor，将所有实现了 BeanPostProcessor 接口的类加载到 BeanFactory 中。
+				//
+				//BeanPostProcessor 接口是 Spring 初始化 bean 时对外暴露的扩展点，Spring IoC 容器允许 BeanPostProcessor
+				//在容器初始化 bean 的前后，添加自己的逻辑处理。在这边只是注册到 BeanFactory 中，具体调用是在 bean 初始化的时候。
+				//具体的：在所有 bean 实例化时，执行初始化方法前会调用所有 BeanPostProcessor 的 postProcessBeforeInitialization
+				// 方法，执行初始化方法后会调用所有 BeanPostProcessor 的 postProcessAfterInitialization 方法。
 				registerBeanPostProcessors(beanFactory);
 				beanPostProcess.end();
 
 				// Initialize message source for this context.
+				//初始化消息资源 MessageSource。
 				initMessageSource();
 
 				// Initialize event multicaster for this context.
+				//初始化应用的事件广播器 ApplicationEventMulticaster。
 				initApplicationEventMulticaster();
 
 				// Initialize other special beans in specific context subclasses.
 				onRefresh();
 
 				// Check for listener beans and register them.
+				//注册监听器。
 				registerListeners();
 
 				// Instantiate all remaining (non-lazy-init) singletons.
+				//该方法会实例化所有剩余的非懒加载单例 bean。除了一些内部的 bean、实现了 BeanFactoryPostProcessor 接口的 bean、实现了
+				// BeanPostProcessor 接口的 bean，
+				// 其他的非懒加载单例 bean 都会在这个方法中被实例化，并且 BeanPostProcessor 的触发也是在这个方法中。
 				finishBeanFactoryInitialization(beanFactory);
 
 				// Last step: publish corresponding event.
+				//完成此上下文的刷新，主要是推送上下文刷新完毕事件（ContextRefreshedEvent ）到监听器。
 				finishRefresh();
 			}
 
@@ -668,7 +713,9 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 	 * @see #getBeanFactory()
 	 */
 	protected ConfigurableListableBeanFactory obtainFreshBeanFactory() {
+		// 1.刷新 BeanFactory，由AbstractRefreshableApplicationContext实现
 		refreshBeanFactory();
+		// 2.拿到刷新后的 BeanFactory
 		return getBeanFactory();
 	}
 
@@ -743,6 +790,8 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 	 * <p>Must be called before singleton instantiation.
 	 */
 	protected void invokeBeanFactoryPostProcessors(ConfigurableListableBeanFactory beanFactory) {
+		// 1.getBeanFactoryPostProcessors(): 拿到当前应用上下文beanFactoryPostProcessors变量中的值
+		// 2.invokeBeanFactoryPostProcessors: 实例化并调用所有已注册的BeanFactoryPostProcessor
 		PostProcessorRegistrationDelegate.invokeBeanFactoryPostProcessors(beanFactory, getBeanFactoryPostProcessors());
 
 		// Detect a LoadTimeWeaver and prepare for weaving, if found in the meantime
@@ -759,6 +808,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 	 * <p>Must be called before any instantiation of application beans.
 	 */
 	protected void registerBeanPostProcessors(ConfigurableListableBeanFactory beanFactory) {
+		// 1.注册BeanPostProcessor
 		PostProcessorRegistrationDelegate.registerBeanPostProcessors(beanFactory, this);
 	}
 

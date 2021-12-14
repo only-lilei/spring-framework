@@ -66,6 +66,8 @@ public abstract class AbstractRefreshableConfigApplicationContext extends Abstra
 	 * <p>If not set, the implementation may use a default as appropriate.
 	 */
 	public void setConfigLocation(String location) {
+		// tokenizeToStringArray: 将location通过分割符（,;\t\n）分割成String数组
+		// setConfigLocations: 将分割后的路径赋值给configLocations
 		setConfigLocations(StringUtils.tokenizeToStringArray(location, CONFIG_LOCATION_DELIMITERS));
 	}
 
@@ -77,7 +79,9 @@ public abstract class AbstractRefreshableConfigApplicationContext extends Abstra
 		if (locations != null) {
 			Assert.noNullElements(locations, "Config locations must not be null");
 			this.configLocations = new String[locations.length];
+			// 1.遍历解析locations
 			for (int i = 0; i < locations.length; i++) {
+				// 2.解析给定路径，必要时用相应的环境属性值替换占位符
 				this.configLocations[i] = resolvePath(locations[i]).trim();
 			}
 		}
@@ -122,6 +126,8 @@ public abstract class AbstractRefreshableConfigApplicationContext extends Abstra
 	 * @see org.springframework.core.env.Environment#resolveRequiredPlaceholders(String)
 	 */
 	protected String resolvePath(String path) {
+		// 1.getEnvironment：获取环境属性
+		// 2.resolveRequiredPlaceholders: 解析给定路径，必要时用相应的环境属性值替换占位符，例如${path}
 		return getEnvironment().resolveRequiredPlaceholders(path);
 	}
 
