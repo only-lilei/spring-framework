@@ -42,6 +42,9 @@ public interface AutowireCandidateResolver {
 	 * @see org.springframework.beans.factory.config.BeanDefinition#isAutowireCandidate()
 	 */
 	default boolean isAutowireCandidate(BeanDefinitionHolder bdHolder, DependencyDescriptor descriptor) {
+		/**
+		 * {@link org.springframework.context.annotation.ClassPathBeanDefinitionScanner#postProcessBeanDefinition(org.springframework.beans.factory.support.AbstractBeanDefinition, java.lang.String)}
+		 **/
 		return bdHolder.getBeanDefinition().isAutowireCandidate();
 	}
 

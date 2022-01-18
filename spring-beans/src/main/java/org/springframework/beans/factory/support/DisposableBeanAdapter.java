@@ -108,9 +108,11 @@ class DisposableBeanAdapter implements DisposableBean, Runnable, Serializable {
 		this.bean = bean;
 		this.beanName = beanName;
 		this.nonPublicAccessAllowed = beanDefinition.isNonPublicAccessAllowed();
+		// 1.判断bean是否需要调用DisposableBean的destroy方法
 		this.invokeDisposableBean = (bean instanceof DisposableBean &&
 				!beanDefinition.isExternallyManagedDestroyMethod(DESTROY_METHOD_NAME));
 
+		// 2.拿到自定义的destroy方法名
 		String destroyMethodName = inferDestroyMethodIfNecessary(bean, beanDefinition);
 		if (destroyMethodName != null &&
 				!(this.invokeDisposableBean && DESTROY_METHOD_NAME.equals(destroyMethodName)) &&
@@ -119,21 +121,26 @@ class DisposableBeanAdapter implements DisposableBean, Runnable, Serializable {
 			this.invokeAutoCloseable = (bean instanceof AutoCloseable && CLOSE_METHOD_NAME.equals(destroyMethodName));
 			if (!this.invokeAutoCloseable) {
 				this.destroyMethodName = destroyMethodName;
+				// 3.拿到自定义的destroy方法，赋值给this.destroyMethod
 				Method destroyMethod = determineDestroyMethod(destroyMethodName);
 				if (destroyMethod == null) {
 					if (beanDefinition.isEnforceDestroyMethod()) {
+						// 4.如果destroy方法名为空，并且enforceDestroyMethod为true，则抛出异常
 						throw new BeanDefinitionValidationException("Could not find a destroy method named '" +
 								destroyMethodName + "' on bean with name '" + beanName + "'");
 					}
 				}
 				else {
 					if (destroyMethod.getParameterCount() > 0) {
+						// 5.拿到destroy方法的参数类型数组
 						Class<?>[] paramTypes = destroyMethod.getParameterTypes();
 						if (paramTypes.length > 1) {
+							// 6.如果destroy方法的参数大于1个，则抛出异常
 							throw new BeanDefinitionValidationException("Method '" + destroyMethodName + "' of bean '" +
 									beanName + "' has more than one parameter - not supported as destroy method");
 						}
 						else if (paramTypes.length == 1 && boolean.class != paramTypes[0]) {
+							// 7.如果destroy方法的参数为1个，并且该参数的类型不为boolean，则抛出异常
 							throw new BeanDefinitionValidationException("Method '" + destroyMethodName + "' of bean '" +
 									beanName + "' has a non-boolean parameter - not supported as destroy method");
 						}
@@ -144,6 +151,7 @@ class DisposableBeanAdapter implements DisposableBean, Runnable, Serializable {
 			}
 		}
 
+		// 8.查找DestructionAwareBeanPostProcessors，并赋值给this.beanPostProcessors
 		this.beanPostProcessors = filterPostProcessors(postProcessors, bean);
 		this.acc = acc;
 	}
@@ -361,6 +369,7 @@ class DisposableBeanAdapter implements DisposableBean, Runnable, Serializable {
 	 * @param beanDefinition the corresponding bean definition
 	 */
 	public static boolean hasDestroyMethod(Object bean, RootBeanDefinition beanDefinition) {
+		// 1.如果bean实现了DisposableBean接口 返回true
 		return (bean instanceof DisposableBean || inferDestroyMethodIfNecessary(bean, beanDefinition) != null);
 	}
 
@@ -380,25 +389,30 @@ class DisposableBeanAdapter implements DisposableBean, Runnable, Serializable {
 	 */
 	@Nullable
 	private static String inferDestroyMethodIfNecessary(Object bean, RootBeanDefinition beanDefinition) {
+		// 2.拿到bean自定义的destroy方法名
 		String destroyMethodName = beanDefinition.resolvedDestroyMethodName;
 		if (destroyMethodName == null) {
 			destroyMethodName = beanDefinition.getDestroyMethodName();
 			boolean autoCloseable = (bean instanceof AutoCloseable);
+			// 2.如果destroy方法名为“(inferred)”|| destroyMethodName为null，并且bean是AutoCloseable实例
 			if (AbstractBeanDefinition.INFER_METHOD.equals(destroyMethodName) ||
 					(destroyMethodName == null && autoCloseable)) {
 				// Only perform destroy method inference in case of the bean
 				// not explicitly implementing the DisposableBean interface
 				destroyMethodName = null;
+				// 3.如果bean没有实现DisposableBean接口，则尝试推测destroy方法的名字
 				if (!(bean instanceof DisposableBean)) {
 					if (autoCloseable) {
 						destroyMethodName = CLOSE_METHOD_NAME;
 					}
 					else {
 						try {
+							// 4.尝试在bean中寻找方法名为close的方法作为destroy方法
 							destroyMethodName = bean.getClass().getMethod(CLOSE_METHOD_NAME).getName();
 						}
 						catch (NoSuchMethodException ex) {
 							try {
+								// 5.尝试在bean中寻找方法名为close的方法作为shutdown方法
 								destroyMethodName = bean.getClass().getMethod(SHUTDOWN_METHOD_NAME).getName();
 							}
 							catch (NoSuchMethodException ex2) {
@@ -420,8 +434,10 @@ class DisposableBeanAdapter implements DisposableBean, Runnable, Serializable {
 	 */
 	public static boolean hasApplicableProcessors(Object bean, List<DestructionAwareBeanPostProcessor> postProcessors) {
 		if (!CollectionUtils.isEmpty(postProcessors)) {
+			// 1.遍历所有的DestructionAwareBeanPostProcessor
 			for (DestructionAwareBeanPostProcessor processor : postProcessors) {
 				if (processor.requiresDestruction(bean)) {
+					// 3.如果给定的bean实例需要通过此后处理器进行销毁，则返回true
 					return true;
 				}
 			}
@@ -441,8 +457,10 @@ class DisposableBeanAdapter implements DisposableBean, Runnable, Serializable {
 		List<DestructionAwareBeanPostProcessor> filteredPostProcessors = null;
 		if (!CollectionUtils.isEmpty(processors)) {
 			filteredPostProcessors = new ArrayList<>(processors.size());
+			// 1.遍历所有的DestructionAwareBeanPostProcessor
 			for (DestructionAwareBeanPostProcessor processor : processors) {
 				if (processor.requiresDestruction(bean)) {
+					// 2.如果给定的bean实例需要通过此后处理器进行销毁，则添加到filteredPostProcessors
 					filteredPostProcessors.add(processor);
 				}
 			}

@@ -59,6 +59,7 @@ import org.springframework.util.StringValueResolver;
  * @see org.springframework.context.MessageSourceAware
  * @see org.springframework.context.ApplicationContextAware
  * @see org.springframework.context.support.AbstractApplicationContext#refresh()
+ * 我们经常通过实现 ApplicationContextAware 接口来拿到 ApplicationContext，我们之所以能拿到 ApplicationContext，就是在这边被赋值的。
  */
 class ApplicationContextAwareProcessor implements BeanPostProcessor {
 
@@ -99,6 +100,7 @@ class ApplicationContextAwareProcessor implements BeanPostProcessor {
 			}, acc);
 		}
 		else {
+			// 调用Aware接口
 			invokeAwareInterfaces(bean);
 		}
 

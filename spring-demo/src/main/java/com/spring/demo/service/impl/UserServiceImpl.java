@@ -1,6 +1,8 @@
 package com.spring.demo.service.impl;
 
+import com.spring.demo.service.TestAutowireService;
 import com.spring.demo.service.UserService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Service;
 
@@ -13,6 +15,9 @@ import org.springframework.stereotype.Service;
 @Service
 @Scope("singleton")
 public class UserServiceImpl implements UserService {
+
+	@Autowired
+	private TestAutowireService testAutowireService;
 
 
 	public UserServiceImpl() {
